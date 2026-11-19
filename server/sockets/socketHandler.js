@@ -11,17 +11,17 @@ export function setupSocketHandlers(io) {
       if (!room) return;
 
       const game = room.game;
-      // Emit tailored state to each socket in the room so hand cards are private
+      // Emit tailored state to each socket in the room so hand cards are private or shared with teammates
       for (const p of game.players) {
         if (!p.isBot) {
           io.to(p.id).emit('game-state', game.getState(p.id));
         }
       }
-      // Also broadcast general state to the room roomCode
       io.to(roomCode).emit('room-info', {
         roomCode,
         playerCount: game.players.length,
         status: game.status,
+        gameMode: game.gameMode,
         messages: room.messages
       });
     };
@@ -34,7 +34,6 @@ export function setupSocketHandlers(io) {
       const curPlayer = game.getCurrentPlayer();
       if (!curPlayer || !curPlayer.isBot) return;
 
-      // Bot thinking delay
       setTimeout(async () => {
         const stillRoom = roomManager.getRoom(roomCode);
         if (!stillRoom || stillRoom.game.status !== 'playing') return;
@@ -47,7 +46,6 @@ export function setupSocketHandlers(io) {
           if (moveResult && moveResult.gameFinished) {
             await handleGameWin(stillRoom.game, roomCode);
           } else {
-            // Check if next turn is also a bot
             triggerBotTurnsIfNeeded(roomCode);
           }
         } catch (err) {
@@ -58,24 +56,49 @@ export function setupSocketHandlers(io) {
 
     const handleGameWin = async (game, roomCode) => {
       try {
-        await dbService.recordGameStats(game.winner.username, game.players);
+        const winningTeamId = game.winningTeam?.id;
+        // In team play, all players on winning team get recorded as winners!
+        for (const player of game.players) {
+          const isWinner = game.gameMode === 'team' && winningTeamId
+            ? player.teamId === winningTeamId
+            : player.username.toLowerCase() === game.winner.username.toLowerCase();
+
+          const existing = await dbService.findUser(player.username);
+          const wins = (existing?.wins || 0) + (isWinner ? 1 : 0);
+          const losses = (existing?.losses || 0) + (isWinner ? 0 : 1);
+          const gamesPlayed = (existing?.gamesPlayed || 0) + 1;
+          const score = (existing?.score || 0) + (isWinner ? 50 : 10);
+          await dbService.saveOrUpdateUser({
+            username: player.username,
+            avatar: player.avatar || existing?.avatar || 'avatar-1',
+            wins,
+            losses,
+            gamesPlayed,
+            score
+          });
+        }
+
         const top10 = await dbService.getLeaderboard(10);
         io.emit('leaderboard-updated', top10);
       } catch (err) {
         console.error('Error saving game stats:', err);
       }
+
       io.to(roomCode).emit('game-over', {
         winner: game.winner,
+        winningTeam: game.winningTeam,
+        gameMode: game.gameMode,
         players: game.players.map((p) => ({
           username: p.username,
           avatar: p.avatar,
+          teamId: p.teamId,
           cardCount: p.hand.length
         }))
       });
     };
 
     // 1. Join or Create Room
-    socket.on('join-room', async ({ roomCode, username, avatar }) => {
+    socket.on('join-room', async ({ roomCode, username, avatar, gameMode, teamCount }) => {
       try {
         if (!username || !username.trim()) {
           return socket.emit('error-msg', 'Username is required');
@@ -85,8 +108,11 @@ export function setupSocketHandlers(io) {
         let room = code ? roomManager.getRoom(code) : null;
 
         if (!room) {
-          // If code was provided but doesn't exist, create it with that code
-          const game = roomManager.createRoom({ roomCode: code });
+          const game = roomManager.createRoom({
+            roomCode: code,
+            gameMode: gameMode || 'solo',
+            teamCount: teamCount || 2
+          });
           room = roomManager.getRoom(game.roomCode);
         }
 
@@ -102,10 +128,9 @@ export function setupSocketHandlers(io) {
 
         socket.join(game.roomCode);
 
-        // System message
         roomManager.addMessage(game.roomCode, {
           sender: 'System',
-          text: `${player.username} joined the game!`,
+          text: `${player.username} joined the table!`,
           isSystem: true
         });
 
@@ -121,7 +146,48 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 2. Start Game (Host only)
+    // Game Mode Switch (Solo vs Team Play)
+    socket.on('set-game-mode', ({ mode, teamCount }) => {
+      if (!currentRoomCode) return;
+      const room = roomManager.getRoom(currentRoomCode);
+      if (!room) return;
+
+      const player = room.game.players.find((p) => p.id === socket.id);
+      if (!player || !player.isHost) return;
+
+      room.game.setGameMode(mode, teamCount || 2);
+      roomManager.addMessage(currentRoomCode, {
+        sender: 'System',
+        text: `Game Mode changed to ${mode === 'team' ? 'TEAM PLAY' : 'SOLO'} (${room.game.teamCount} Teams)`,
+        isSystem: true
+      });
+      broadcastRoomState(currentRoomCode);
+    });
+
+    // Player Selects Team
+    socket.on('switch-team', ({ teamId }) => {
+      if (!currentRoomCode) return;
+      const room = roomManager.getRoom(currentRoomCode);
+      if (!room) return;
+
+      room.game.assignPlayerTeam(socket.id, teamId);
+      broadcastRoomState(currentRoomCode);
+    });
+
+    // Host Auto-balances Teams
+    socket.on('auto-balance-teams', () => {
+      if (!currentRoomCode) return;
+      const room = roomManager.getRoom(currentRoomCode);
+      if (!room) return;
+
+      const player = room.game.players.find((p) => p.id === socket.id);
+      if (!player || !player.isHost) return;
+
+      room.game.autoAssignTeams();
+      broadcastRoomState(currentRoomCode);
+    });
+
+    // Start Game
     socket.on('start-game', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -136,7 +202,7 @@ export function setupSocketHandlers(io) {
         room.game.startGame();
         roomManager.addMessage(currentRoomCode, {
           sender: 'System',
-          text: `Game has started! Good luck to all players!`,
+          text: `Game started in ${room.game.gameMode.toUpperCase()} mode!`,
           isSystem: true
         });
         broadcastRoomState(currentRoomCode);
@@ -146,7 +212,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 3. Play Card
+    // Play Card
     socket.on('play-card', async ({ cardId, chosenColor, willCallUno }) => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -166,7 +232,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 4. Draw Card
+    // Draw Card
     socket.on('draw-card', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -182,7 +248,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 5. Pass Turn (after drawing)
+    // Pass Turn
     socket.on('pass-turn', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -197,7 +263,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 6. Call UNO!
+    // Call UNO
     socket.on('call-uno', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -212,7 +278,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 7. Catch UNO! (Challenge player who forgot)
+    // Catch UNO
     socket.on('catch-uno', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -227,7 +293,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 8. Add Bot
+    // Add Bot
     socket.on('add-bot', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -238,16 +304,11 @@ export function setupSocketHandlers(io) {
 
       const bot = room.game.addBot();
       if (bot) {
-        roomManager.addMessage(currentRoomCode, {
-          sender: 'System',
-          text: `${bot.username} (AI) joined the room.`,
-          isSystem: true
-        });
         broadcastRoomState(currentRoomCode);
       }
     });
 
-    // 9. Remove Bot
+    // Remove Bot
     socket.on('remove-bot', ({ botId }) => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -262,7 +323,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 10. Chat Message
+    // Chat Message
     socket.on('send-message', ({ text }) => {
       if (!currentRoomCode || !text || !text.trim()) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -276,7 +337,7 @@ export function setupSocketHandlers(io) {
       io.to(currentRoomCode).emit('chat-message', msg);
     });
 
-    // 11. Quick Emoji Reaction
+    // Quick Emoji Reaction
     socket.on('send-reaction', ({ emoji }) => {
       if (!currentRoomCode || !emoji) return;
       io.to(currentRoomCode).emit('player-reaction', {
@@ -286,7 +347,7 @@ export function setupSocketHandlers(io) {
       });
     });
 
-    // 12. Restart Game
+    // Restart Game
     socket.on('restart-game', () => {
       if (!currentRoomCode) return;
       const room = roomManager.getRoom(currentRoomCode);
@@ -298,6 +359,7 @@ export function setupSocketHandlers(io) {
       try {
         room.game.status = 'waiting';
         room.game.winner = null;
+        room.game.winningTeam = null;
         room.game.startGame();
         io.to(currentRoomCode).emit('game-restarted');
         broadcastRoomState(currentRoomCode);
@@ -307,7 +369,7 @@ export function setupSocketHandlers(io) {
       }
     });
 
-    // 13. Disconnect / Leave
+    // Disconnect
     socket.on('disconnect', () => {
       if (currentRoomCode) {
         const room = roomManager.getRoom(currentRoomCode);
@@ -316,11 +378,10 @@ export function setupSocketHandlers(io) {
           if (removed) {
             roomManager.addMessage(currentRoomCode, {
               sender: 'System',
-              text: `${removed.username} left the game.`,
+              text: `${removed.username} left the table.`,
               isSystem: true
             });
             if (room.game.players.filter((p) => !p.isBot).length === 0) {
-              // Clean up empty room
               roomManager.deleteRoom(currentRoomCode);
             } else {
               broadcastRoomState(currentRoomCode);

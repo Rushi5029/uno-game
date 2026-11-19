@@ -2,7 +2,7 @@ import { UnoGame } from './unoEngine.js';
 
 class RoomManager {
   constructor() {
-    this.rooms = new Map(); // roomCode -> { game, messages: [], createdAt }
+    this.rooms = new Map();
   }
 
   generateRoomCode() {
@@ -20,7 +20,9 @@ class RoomManager {
   createRoom(options = {}) {
     const code = options.roomCode ? options.roomCode.toUpperCase() : this.generateRoomCode();
     const game = new UnoGame(code, {
-      maxPlayers: options.maxPlayers || 10
+      maxPlayers: options.maxPlayers || 10,
+      gameMode: options.gameMode || 'solo',
+      teamCount: options.teamCount || 2
     });
     this.rooms.set(code, {
       game,
@@ -75,6 +77,8 @@ class RoomManager {
           roomCode: code,
           playerCount: room.game.players.length,
           maxPlayers: room.game.maxPlayers,
+          gameMode: room.game.gameMode,
+          teamCount: room.game.teamCount,
           host: room.game.players[0]?.username || 'Anonymous',
           status: room.game.status
         });

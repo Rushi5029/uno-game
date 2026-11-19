@@ -39,7 +39,6 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         setUser(parsed);
-        // Refresh profile stats & rank from server
         fetch(`/api/auth/profile/${encodeURIComponent(parsed.username)}`)
           .then((res) => res.json())
           .then((data) => {
@@ -55,8 +54,6 @@ export default function App() {
 
   // 2. Initialize Socket Connection
   useEffect(() => {
-    // In dev, Vite proxies /socket.io to backend localhost:5000
-    // In prod, connects to current window.location.origin
     const serverUrl = window.location.origin;
     socket = io(serverUrl, {
       transports: ['websocket', 'polling']
@@ -103,7 +100,6 @@ export default function App() {
     socket.on('game-over', (data) => {
       setWinnerData(data);
       setShowWinnerModal(true);
-      // Refresh current user stats
       if (user) {
         fetch(`/api/auth/profile/${encodeURIComponent(user.username)}`)
           .then((r) => r.json())
@@ -156,12 +152,14 @@ export default function App() {
   };
 
   // Room Handlers
-  const handleCreateRoom = (maxPlayers = 10) => {
+  const handleCreateRoom = (options = {}) => {
     if (!user || !socket) return;
     socket.emit('join-room', {
       username: user.username,
       avatar: user.avatar,
-      roomCode: null
+      roomCode: null,
+      gameMode: options.gameMode || 'solo',
+      teamCount: options.teamCount || 2
     });
   };
 
@@ -183,6 +181,19 @@ export default function App() {
     setCurrentRoomCode(null);
     setShowWinnerModal(false);
     window.history.replaceState({}, document.title, window.location.pathname);
+  };
+
+  // Mode and Team Handlers
+  const handleSetGameMode = (mode, teamCount = 2) => {
+    if (socket) socket.emit('set-game-mode', { mode, teamCount });
+  };
+
+  const handleSwitchTeam = (teamId) => {
+    if (socket) socket.emit('switch-team', { teamId });
+  };
+
+  const handleAutoBalanceTeams = () => {
+    if (socket) socket.emit('auto-balance-teams');
   };
 
   // Game Action Handlers
@@ -231,7 +242,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans select-none text-slate-100">
+    <div className="min-h-screen bg-[#0b0f19] flex flex-col font-sans select-none text-slate-100">
       {/* Top Navigation */}
       <Navbar
         user={user}
@@ -273,6 +284,9 @@ export default function App() {
             onCallUno={handleCallUno}
             onCatchUno={handleCatchUno}
             onLeaveRoom={handleLeaveRoom}
+            onSetGameMode={handleSetGameMode}
+            onSwitchTeam={handleSwitchTeam}
+            onAutoBalanceTeams={handleAutoBalanceTeams}
             onOpenChat={() => {
               setShowChat(true);
               setUnreadChat(0);
@@ -316,6 +330,8 @@ export default function App() {
       {showWinnerModal && (
         <WinnerModal
           winner={winnerData?.winner}
+          winningTeam={winnerData?.winningTeam}
+          gameMode={winnerData?.gameMode}
           players={winnerData?.players}
           isHost={isHost}
           onPlayAgain={handlePlayAgain}

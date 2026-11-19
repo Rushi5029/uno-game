@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, LogIn, Sparkles, RefreshCw, Bot, Play } from 'lucide-react';
+import { Plus, Users, LogIn, Sparkles, RefreshCw, Shield, Crown } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import RankBadge from './RankBadge';
 
@@ -9,10 +9,12 @@ export default function Lobby({
   onJoinRoom
 }) {
   const [joinCode, setJoinCode] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState(10);
+  const [maxPlayers, setMaxPlayers] = useState(6);
+  const [gameMode, setGameMode] = useState('solo'); // 'solo' or 'team'
+  const [teamCount, setTeamCount] = useState(2);
   const [publicRooms, setPublicRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
-  const [tab, setTab] = useState('join'); // 'join' or 'create'
+  const [tab, setTab] = useState('join');
 
   const fetchRooms = async () => {
     setLoadingRooms(true);
@@ -41,39 +43,38 @@ export default function Lobby({
 
   const handleCreateSubmit = (e) => {
     e.preventDefault();
-    onCreateRoom(maxPlayers);
+    onCreateRoom({ maxPlayers, gameMode, teamCount });
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Hero Welcome */}
+      {/* Brand Hero */}
       <div className="text-center mb-8 relative">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900 border border-slate-700/80 mb-3 text-xs font-bold text-yellow-400">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Real-time Multiplayer • 2 to 10 Players</span>
+          <span>Multiplayer Arena • Solo & Team Play (2-10 Players)</span>
         </div>
         <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">
-          Ready to Play{' '}
+          Battle Your Friends in{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-yellow-400 to-emerald-400">
             UNO
           </span>
-          ?
         </h1>
         <p className="text-slate-400 text-sm mt-2 max-w-lg mx-auto">
-          Create a room, invite 5-6 or up to 10 friends with your 4-letter room code, and battle to empty your cards first!
+          Play classic solo or team up with your friends in 2v2 / 3v3 mode where teammates can see each other's cards!
         </p>
 
-        {/* User preview */}
-        <div className="mt-4 inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-900/60 border border-slate-800">
+        {/* User Card */}
+        <div className="mt-4 inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-900/70 border border-slate-800 shadow-lg">
           <UserAvatar avatarId={user?.avatar} size="sm" showBadge={false} />
           <span className="text-sm font-bold text-slate-200">
-            Playing as: <strong className="text-yellow-400">{user?.username}</strong>
+            Player: <strong className="text-yellow-400">{user?.username}</strong>
           </span>
           {user?.rank && user?.rank <= 3 && <RankBadge rank={user.rank} />}
         </div>
       </div>
 
-      {/* Main Tabs (Join with Code / Create Room) */}
+      {/* Main Tabs */}
       <div className="max-w-md mx-auto bg-slate-900/90 border-2 border-slate-700/80 rounded-3xl p-6 shadow-2xl backdrop-blur-md mb-10">
         <div className="flex p-1 bg-slate-950 rounded-2xl mb-6 border border-slate-800">
           <button
@@ -123,10 +124,48 @@ export default function Lobby({
             </button>
           </form>
         ) : (
-          <form onSubmit={handleCreateSubmit} className="space-y-5">
+          <form onSubmit={handleCreateSubmit} className="space-y-4">
+            {/* Game Mode Choice */}
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                Max Players (2 to 10)
+                Game Mode
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGameMode('solo')}
+                  className={`py-2.5 rounded-xl font-bold text-xs border transition ${
+                    gameMode === 'solo'
+                      ? 'border-yellow-400 bg-yellow-400/20 text-yellow-300'
+                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  Solo (Free for All)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGameMode('team')}
+                  className={`py-2.5 rounded-xl font-bold text-xs border transition flex items-center justify-center gap-1 ${
+                    gameMode === 'team'
+                      ? 'border-indigo-400 bg-indigo-500/20 text-indigo-300'
+                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Team Play</span>
+                </button>
+              </div>
+              {gameMode === 'team' && (
+                <p className="text-[11px] text-indigo-300 mt-1.5">
+                  ★ Teammates can see each other's cards & win as a team!
+                </p>
+              )}
+            </div>
+
+            {/* Max Players */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Players ({maxPlayers} Players)
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {[4, 6, 8, 10].map((num) => (
@@ -134,7 +173,7 @@ export default function Lobby({
                     type="button"
                     key={num}
                     onClick={() => setMaxPlayers(num)}
-                    className={`py-2.5 rounded-xl font-black text-sm border transition ${
+                    className={`py-2 rounded-xl font-black text-xs border transition ${
                       maxPlayers === num
                         ? 'border-yellow-400 bg-yellow-400/20 text-yellow-300'
                         : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
@@ -144,17 +183,14 @@ export default function Lobby({
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-500 mt-2">
-                Ideal for 5-6 friends, or invite up to 10 players!
-              </p>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 shadow-xl shadow-emerald-500/20 active:scale-95 transition flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
+              className="w-full py-3.5 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 shadow-xl shadow-emerald-500/20 active:scale-95 transition flex items-center justify-center gap-2 text-sm uppercase tracking-wider mt-2"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Create New Game</span>
+              <span>Create Table</span>
             </button>
           </form>
         )}
@@ -166,7 +202,7 @@ export default function Lobby({
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-yellow-400" />
             <h3 className="font-black text-white text-base">
-              Open Games Looking for Players
+              Open Tables Looking for Players
             </h3>
           </div>
           <button
@@ -181,7 +217,7 @@ export default function Lobby({
 
         {publicRooms.length === 0 ? (
           <div className="p-8 rounded-3xl bg-slate-900/40 border border-slate-800/80 text-center text-slate-500 text-sm">
-            No public rooms waiting right now. Create one above and invite your friends!
+            No active open tables. Create one above and invite your friends!
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -199,11 +235,15 @@ export default function Lobby({
                       Host: {r.host}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-blue-400" />
+                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-2">
                     <span>
                       {r.playerCount} / {r.maxPlayers} players
                     </span>
+                    {r.gameMode === 'team' && (
+                      <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.2 rounded border border-indigo-500/30">
+                        Team Play
+                      </span>
+                    )}
                   </div>
                 </div>
 

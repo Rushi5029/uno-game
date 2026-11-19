@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw, Home, Crown } from 'lucide-react';
+import { Trophy, RotateCcw, Home, Crown, Shield } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 import { playWinSound } from '../utils/soundEffects';
 
 export default function WinnerModal({
   winner,
+  winningTeam,
+  gameMode = 'solo',
   players = [],
   isHost,
   onPlayAgain,
@@ -13,20 +15,19 @@ export default function WinnerModal({
 }) {
   useEffect(() => {
     playWinSound();
-    // Fire festive confetti cannon
-    const duration = 3 * 1000;
+    const duration = 3.5 * 1000;
     const end = Date.now() + duration;
 
     const frame = () => {
       confetti({
-        particleCount: 4,
+        particleCount: 5,
         angle: 60,
         spread: 55,
         origin: { x: 0 },
         colors: ['#dc2626', '#eab308', '#16a34a', '#2563eb']
       });
       confetti({
-        particleCount: 4,
+        particleCount: 5,
         angle: 120,
         spread: 55,
         origin: { x: 1 },
@@ -40,6 +41,8 @@ export default function WinnerModal({
     frame();
   }, []);
 
+  const isTeamWin = gameMode === 'team' && winningTeam;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
       <div className="bg-slate-900 border-2 border-yellow-500/50 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden">
@@ -51,22 +54,26 @@ export default function WinnerModal({
         </div>
 
         <h2 className="text-3xl font-black text-white tracking-wide">
-          VICTORY!
+          {isTeamWin ? 'TEAM VICTORY!' : 'VICTORY!'}
         </h2>
         <p className="text-yellow-400 font-bold text-sm mb-6">
-          {winner?.username} played all their cards!
+          {isTeamWin
+            ? `${winningTeam.name} champions!`
+            : `${winner?.username} played all their cards!`}
         </p>
 
         {/* Winner Showcase */}
-        <div className="bg-slate-950/70 p-4 rounded-2xl border border-yellow-500/30 flex items-center justify-center gap-4 mb-6">
+        <div className="bg-slate-950/80 p-4 rounded-2xl border border-yellow-500/30 flex items-center justify-center gap-4 mb-6 shadow-inner">
           <UserAvatar avatarId={winner?.avatar} size="lg" rank={1} />
           <div className="text-left">
             <div className="text-xl font-black text-white">{winner?.username}</div>
-            <div className="text-xs text-emerald-400 font-semibold">1st Place Winner 👑</div>
+            <div className="text-xs text-emerald-400 font-bold">
+              {isTeamWin ? `${winningTeam.name} Champion 👑` : '1st Place Champion 👑'}
+            </div>
           </div>
         </div>
 
-        {/* Other players summary */}
+        {/* Players Standings */}
         <div className="space-y-2 mb-6 text-left">
           <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">
             Final Standings
@@ -83,7 +90,7 @@ export default function WinnerModal({
                   <span className="font-semibold text-white">{p.username}</span>
                 </div>
                 <span className="text-slate-400 font-medium">
-                  {p.cardCount === 0 ? '🏆 Winner' : `${p.cardCount} cards left`}
+                  {p.cardCount === 0 ? '🏆 Emptied Hand' : `${p.cardCount} cards left`}
                 </span>
               </div>
             ))}
@@ -110,7 +117,7 @@ export default function WinnerModal({
             </button>
           ) : (
             <div className="flex-1 text-xs text-slate-400 italic flex items-center justify-center">
-              Waiting for host to restart...
+              Waiting for host...
             </div>
           )}
         </div>
