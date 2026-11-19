@@ -13,12 +13,45 @@
   {
     "id": "1795101479759",
     "username": "Rushi",
-    "avatar": "avatar-5",
-    "gamesPlayed": 0,
-    "wins": 0,
-    "losses": 0,
-    "score": 0,
+    "avatar": "avatar-6",
+    "gamesPlayed": 2,
+    "wins": 1,
+    "losses": 1,
+    "score": 60,
     "createdAt": "2026-11-19T15:17:59.759Z",
-    "lastActive": "2026-11-19T15:17:59.759Z"
+    "lastActive": "2026-11-19T16:09:44.935Z"
+  },
+  {
+    "id": "1795104422561",
+    "username": "RoboUno",
+    "avatar": "avatar-2",
+    "gamesPlayed": 2,
+    "wins": 1,
+    "losses": 1,
+    "score": 60,
+    "createdAt": "2026-11-19T16:07:02.561Z",
+    "lastActive": "2026-11-19T16:09:44.940Z"
+  },
+  {
+    "id": "1795104422569",
+    "username": "PixelBot",
+    "avatar": "avatar-3",
+    "gamesPlayed": 1,
+    "wins": 1,
+    "losses": 0,
+    "score": 50,
+    "createdAt": "2026-11-19T16:07:02.569Z",
+    "lastActive": "2026-11-19T16:07:02.570Z"
+  },
+  {
+    "id": "1795104422571",
+    "username": "CyberAce",
+    "avatar": "avatar-4",
+    "gamesPlayed": 1,
+    "wins": 0,
+    "losses": 1,
+    "score": 10,
+    "createdAt": "2026-11-19T16:07:02.571Z",
+    "lastActive": "2026-11-19T16:07:02.571Z"
   }
 ]
