@@ -1,0 +1,16 @@
+{
+  "name": "uno-online-game",
+  "version": "1.0.0",
+  "description": "Multiplayer UNO Card Game - MERN Stack with Socket.io",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "build:client": "npm --prefix client run build",
+    "server": "node --watch server/server.js",
+    "client": "npm --prefix client run dev",
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "keywords": ["uno", "mern", "multiplayer", "socket.io", "react"],
+  "author": "",
+  "license": "MIT"
+}
