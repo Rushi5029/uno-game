@@ -14,23 +14,23 @@
     "id": "1795101479759",
     "username": "Rushi",
     "avatar": "avatar-6",
-    "gamesPlayed": 2,
-    "wins": 1,
+    "gamesPlayed": 3,
+    "wins": 2,
     "losses": 1,
-    "score": 60,
+    "score": 110,
     "createdAt": "2026-11-19T15:17:59.759Z",
-    "lastActive": "2026-11-19T16:09:44.935Z"
+    "lastActive": "2026-11-19T16:18:08.252Z"
   },
   {
     "id": "1795104422561",
     "username": "RoboUno",
     "avatar": "avatar-2",
-    "gamesPlayed": 2,
+    "gamesPlayed": 3,
     "wins": 1,
-    "losses": 1,
-    "score": 60,
+    "losses": 2,
+    "score": 70,
     "createdAt": "2026-11-19T16:07:02.561Z",
-    "lastActive": "2026-11-19T16:09:44.940Z"
+    "lastActive": "2026-11-19T16:18:08.258Z"
   },
   {
     "id": "1795104422569",
